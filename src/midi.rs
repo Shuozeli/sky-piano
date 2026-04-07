@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, BufRead, Read};
 use std::path::Path;
 use thiserror::Error;
 
@@ -26,13 +26,105 @@ pub enum MidiError {
     UnsupportedFormat(u16),
 }
 
-/// Parse a MIDI file and return a list of note events sorted by time.
+/// Parse a MIDI file or our TXT format. Auto-detects based on extension.
 pub fn parse_midi(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
+    let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+
+    if extension == "txt" {
+        return parse_txt_file(path);
+    }
+
     let mut file = File::open(path)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
 
     parse_midi_bytes(&buffer)
+}
+
+/// Parse our TXT format (Time,Keys,Duration CSV)
+fn parse_txt_file(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
+    let file = File::open(path)?;
+    let reader = io::BufReader::new(file);
+
+    // Sky key to pseudo MIDI note mapping
+    // y=0, u=1, i=2, o=3, p=4, h=5, j=6, k=7, l=8, ;=9, n=10, m=11, ,=12, .=13, /=14
+    let key_to_note = |key: char| -> Option<u8> {
+        let note = match key {
+            'y' => 0,
+            'u' => 1,
+            'i' => 2,
+            'o' => 3,
+            'p' => 4,
+            'h' => 5,
+            'j' => 6,
+            'k' => 7,
+            'l' => 8,
+            ';' => 9,
+            'n' => 10,
+            'm' => 11,
+            ',' => 12,
+            '.' => 13,
+            '/' => 14,
+            _ => return None,
+        };
+        Some(note + 60) // Base note 60 to fit in reasonable MIDI range
+    };
+
+    let mut events = Vec::new();
+    let mut chords: Vec<(f64, String, f64)> = Vec::new(); // (time, keys, duration)
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| MidiError::InvalidMidi(e.to_string()))?;
+        let line = line.trim();
+
+        // Skip empty lines and comments
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Parse CSV: Time,Keys,Duration
+        let parts: Vec<&str> = line.split(',').collect();
+        if parts.len() != 3 {
+            continue;
+        }
+
+        let time: f64 = parts[0]
+            .parse()
+            .map_err(|_| MidiError::InvalidMidi(format!("Invalid time: {}", parts[0])))?;
+        let keys = parts[1];
+        let duration: f64 = parts[2]
+            .parse()
+            .map_err(|_| MidiError::InvalidMidi(format!("Invalid duration: {}", parts[2])))?;
+
+        chords.push((time, keys.to_string(), duration));
+    }
+
+    // Convert chords to MIDI events
+    for (time, keys, duration) in chords {
+        for key in keys.chars() {
+            if let Some(note) = key_to_note(key) {
+                // Note on
+                events.push(MidiEvent {
+                    time,
+                    note,
+                    is_note_on: true,
+                    velocity: 100,
+                });
+                // Note off
+                events.push(MidiEvent {
+                    time: time + duration,
+                    note,
+                    is_note_on: false,
+                    velocity: 0,
+                });
+            }
+        }
+    }
+
+    // Sort by time
+    events.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+
+    Ok(events)
 }
 
 /// Parse MIDI from bytes

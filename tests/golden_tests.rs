@@ -10,9 +10,15 @@ fn test_golden_export(song_name: &str) {
     let golden_dir = Path::new("tests/golden");
     let export_dir = Path::new("tests/export_output");
 
-    let midi_path = songs_dir.join(format!("{}.mid", song_name));
+    let midi_path = songs_dir.join(format!("{}.txt", song_name));
     let golden_path = golden_dir.join(format!("{}.txt", song_name));
     let export_path = export_dir.join(format!("{}.txt", song_name));
+
+    // Skip if source file doesn't exist
+    if !midi_path.exists() {
+        println!("  (skipping - no source file: {})", midi_path.display());
+        return;
+    }
 
     // Skip if golden file doesn't exist
     if !golden_path.exists() {

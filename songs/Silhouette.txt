@@ -1,0 +1,6 @@
+# Silhouette
+# Converted from SkyStudio format
+# BPM: 350
+# Total chords: 0
+
+Time,Keys,Duration
