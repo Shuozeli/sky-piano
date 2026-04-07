@@ -183,22 +183,23 @@ mod tests {
     use super::*;
 
     fn make_mapper() -> Mapper {
-        Mapper::default_chromatic_15()
+        Mapper::default_positional_15()
     }
 
     #[test]
     fn test_events_to_chords_simple() {
         let mapper = make_mapper();
+        // Use positional notes 0-14 for Sky keys
         let events = vec![
             MidiEvent {
                 time: 0.0,
-                note: 60,
+                note: 5, // Maps to "h"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.5,
-                note: 60,
+                note: 5,
                 is_note_on: false,
                 velocity: 0,
             },
@@ -215,29 +216,29 @@ mod tests {
     fn test_events_to_chords_multiple_notes() {
         let mapper = make_mapper();
         let events = vec![
-            // Two notes at same time
+            // Two notes at same time: key 5 ("h") and key 9 (";")
             MidiEvent {
                 time: 0.0,
-                note: 60,
+                note: 5,
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.0,
-                note: 64,
+                note: 9,
                 is_note_on: true,
                 velocity: 100,
             },
             // Both off at same time
             MidiEvent {
                 time: 1.0,
-                note: 60,
+                note: 5,
                 is_note_on: false,
                 velocity: 0,
             },
             MidiEvent {
                 time: 1.0,
-                note: 64,
+                note: 9,
                 is_note_on: false,
                 velocity: 0,
             },
@@ -245,7 +246,7 @@ mod tests {
 
         let chords = events_to_chords(&events, &mapper);
         assert_eq!(chords.len(), 1);
-        assert_eq!(chords[0].keys, vec!["h", ";"]); // C and E
+        assert_eq!(chords[0].keys, vec!["h", ";"]);
         assert_eq!(chords[0].duration, 1.0);
     }
 
@@ -255,32 +256,32 @@ mod tests {
         let events = vec![
             MidiEvent {
                 time: 0.0,
-                note: 60,
+                note: 5, // Mapped to "h"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.0,
-                note: 75, // Not in our 15-key mapping
+                note: 15, // Not in our 15-key mapping (0-14)
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.5,
-                note: 60,
+                note: 5,
                 is_note_on: false,
                 velocity: 0,
             },
             MidiEvent {
                 time: 0.5,
-                note: 75,
+                note: 15,
                 is_note_on: false,
                 velocity: 0,
             },
         ];
 
         let chords = events_to_chords(&events, &mapper);
-        // Only C (60) should be in chord, 75 is not mapped
+        // Only note 5 ("h") should be in chord, 15 is not mapped
         assert_eq!(chords.len(), 1);
         assert_eq!(chords[0].keys, vec!["h"]);
     }
@@ -291,25 +292,25 @@ mod tests {
         let events = vec![
             MidiEvent {
                 time: 0.0,
-                note: 60,
+                note: 5, // Maps to "h"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.5,
-                note: 60,
+                note: 5,
                 is_note_on: false,
                 velocity: 0,
             },
             MidiEvent {
                 time: 0.5,
-                note: 62,
+                note: 7, // Maps to "k"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 1.0,
-                note: 62,
+                note: 7,
                 is_note_on: false,
                 velocity: 0,
             },

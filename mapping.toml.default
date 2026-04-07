@@ -1,24 +1,26 @@
 # Sky Piano - Default Key Mapping
 #
-# Maps MIDI note numbers to keyboard keys.
+# Maps Sky key positions (0-14) to keyboard keys.
 # Edit this file and pass --mapping to sky-piano to use custom mapping.
 #
-# Default: 15-key chromatic scale
-# MIDI note 60 = Middle C
+# Default: 15-key positional mapping matching Sky's 3x5 grid
+# Key 0-4:  Y U I O P (top row)
+# Key 5-9:  H J K L ; (middle row)
+# Key 10-14: N M , . / (bottom row)
 
 [mapping]
-"60" = "h"   # C4  - Middle C
-"61" = "j"   # C#4 - C sharp
-"62" = "k"   # D4
-"63" = "l"   # D#4 - D sharp
-"64" = ";"   # E4
-"65" = "n"   # F4
-"66" = "m"   # F#4 - F sharp
-"67" = ","   # G4
-"68" = "."   # G#4 - G sharp
-"69" = "/"   # A4
-"70" = "y"   # A#4 - A sharp
-"71" = "u"   # B4
-"72" = "i"   # C5  - High C
-"73" = "o"   # D5
-"74" = "p"   # E5
+"0" = "y"
+"1" = "u"
+"2" = "i"
+"3" = "o"
+"4" = "p"
+"5" = "h"
+"6" = "j"
+"7" = "k"
+"8" = "l"
+"9" = ";"
+"10" = "n"
+"11" = "m"
+"12" = ","
+"13" = "."
+"14" = "/"

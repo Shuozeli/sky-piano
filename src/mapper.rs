@@ -45,49 +45,39 @@ impl Mapper {
         Mapper { note_to_key }
     }
 
-    /// Create a mapper with the default 15-key chromatic mapping.
+    /// Create a mapper with the default 15-key positional mapping.
     ///
-    /// | Note | Key |
-    /// |------|-----|
-    /// | C (60)  | h |
-    /// | C# (61) | j |
-    /// | D (62)  | k |
-    /// | D# (63) | l |
-    /// | E (64)  | ; |
-    /// | F (65)  | n |
-    /// | F# (66) | m |
-    /// | G (67)  | , |
-    /// | G# (68) | . |
-    /// | A (69)  | / |
-    /// | A# (70) | y |
-    /// | B (71)  | u |
-    /// | C2 (72) | i |
-    /// | D2 (73) | o |
-    /// | E2 (74) | p |
-    pub fn default_chromatic_15() -> Self {
-        let mapping: HashMap<u8, &str> = [
-            (60, "h"),
-            (61, "j"),
-            (62, "k"),
-            (63, "l"),
-            (64, ";"),
-            (65, "n"),
-            (66, "m"),
-            (67, ","),
-            (68, "."),
-            (69, "/"),
-            (70, "y"),
-            (71, "u"),
-            (72, "i"),
-            (73, "o"),
-            (74, "p"),
-        ]
-        .into_iter()
-        .collect();
+    /// Maps Sky key positions 0-14 directly to keyboard keys:
+    /// | Sky Key | Key |
+    /// |---------|-----|
+    /// | 0  | y |
+    /// | 1  | u |
+    /// | 2  | i |
+    /// | 3  | o |
+    /// | 4  | p |
+    /// | 5  | h |
+    /// | 6  | j |
+    /// | 7  | k |
+    /// | 8  | l |
+    /// | 9  | ; |
+    /// | 10 | n |
+    /// | 11 | m |
+    /// | 12 | , |
+    /// | 13 | . |
+    /// | 14 | / |
+    pub fn default_positional_15() -> Self {
+        // Keyboard keys arranged in 3x5 grid matching Sky's layout:
+        // Row 0 (top):    Y U I O P
+        // Row 1 (middle): H J K L ;
+        // Row 2 (bottom): N M , . /
+        let keys = [
+            "y", "u", "i", "o", "p", "h", "j", "k", "l", ";", "n", "m", ",", ".", "/",
+        ];
 
-        let note_to_key = mapping
-            .into_iter()
-            .map(|(note, key)| (note, key.to_string()))
+        let note_to_key: HashMap<u8, String> = keys
+            .iter()
+            .enumerate()
+            .map(|(pos, key)| (pos as u8, key.to_string()))
             .collect();
 
         Mapper { note_to_key }
@@ -105,19 +95,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_chromatic_15() {
-        let mapper = Mapper::default_chromatic_15();
+    fn test_default_positional_15() {
+        let mapper = Mapper::default_positional_15();
 
-        // Test a few known mappings
-        assert_eq!(mapper.note_to_key(60), Some("h")); // Middle C
-        assert_eq!(mapper.note_to_key(61), Some("j")); // C#
-        assert_eq!(mapper.note_to_key(64), Some(";")); // E
-        assert_eq!(mapper.note_to_key(72), Some("i")); // C2
+        // Test positional mappings (Sky key N -> keyboard key)
+        assert_eq!(mapper.note_to_key(0), Some("y")); // Top row, leftmost
+        assert_eq!(mapper.note_to_key(4), Some("p")); // Top row, rightmost
+        assert_eq!(mapper.note_to_key(5), Some("h")); // Middle row, leftmost
+        assert_eq!(mapper.note_to_key(9), Some(";")); // Middle row, rightmost
+        assert_eq!(mapper.note_to_key(10), Some("n")); // Bottom row, leftmost
+        assert_eq!(mapper.note_to_key(14), Some("/")); // Bottom row, rightmost
 
         // Unmapped note
-        assert_eq!(mapper.note_to_key(0), None);
+        assert_eq!(mapper.note_to_key(15), None);
         assert_eq!(mapper.note_to_key(127), None);
-        assert_eq!(mapper.note_to_key(75), None); // F2 not mapped
     }
 
     #[test]

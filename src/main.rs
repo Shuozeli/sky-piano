@@ -66,10 +66,10 @@ fn main() {
         } else {
             eprintln!("Mapping file not found: {:?}", mapping_path);
             eprintln!("Using default mapping");
-            mapper::Mapper::default_chromatic_15()
+            mapper::Mapper::default_positional_15()
         }
     } else {
-        mapper::Mapper::default_chromatic_15()
+        mapper::Mapper::default_positional_15()
     };
 
     match &cli.command {

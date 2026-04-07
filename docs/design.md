@@ -38,22 +38,25 @@ Keyboard automation tool that plays MIDI songs on Sky: Children of the Light ins
 
 ## Note Mapping (Default)
 
-15 keys total:
+15 keys total matching Sky's 3x5 grid:
 
-| Note | Key | | Note | Key |
-|------|----|-|------|-----|
-| C  | `h` | | A# | `y` |
-| C# | `j` | | B  | `u` |
-| D  | `k` | | C2 | `i` |
-| D# | `l` | | D2 | `o` |
-| E  | `;` | | E2 | `p` |
-| F  | `n` | | | |
-| F# | `m` | | | |
-| G  | `,` | | | |
-| G# | `.` | | | |
-| A  | `/` | | | |
+| Sky Key | Key | | Sky Key | Key |
+|---------|----|-|---------|-----|
+| 0  | `y` | | 10 | `n` |
+| 1  | `u` | | 11 | `m` |
+| 2  | `i` | | 12 | `,` |
+| 3  | `o` | | 13 | `.` |
+| 4  | `p` | | 14 | `/` |
+| 5  | `h` | | | |
+| 6  | `j` | | | |
+| 7  | `k` | | | |
+| 8  | `l` | | | |
+| 9  | `;` | | | |
 
-MIDI note 60 (Middle C) maps to key `h`.
+Keyboard layout (matches Sky's 3x5 grid):
+- Row 0 (top):    Y U I O P
+- Row 1 (middle): H J K L ;
+- Row 2 (bottom): N M , . /
 
 Users can override this mapping in `mapping.toml`.
 
