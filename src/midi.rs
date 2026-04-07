@@ -42,32 +42,61 @@ pub fn parse_midi(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
 }
 
 /// Parse our TXT format (Time,Keys,Duration CSV)
+/// Keys are note names like "C4", "D#4", "Bb5", "F#3"
 fn parse_txt_file(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
     let file = File::open(path)?;
     let reader = io::BufReader::new(file);
 
-    // Sky key to pseudo MIDI note mapping
-    // y=0, u=1, i=2, o=3, p=4, h=5, j=6, k=7, l=8, ;=9, n=10, m=11, ,=12, .=13, /=14
-    let key_to_note = |key: char| -> Option<u8> {
-        let note = match key {
-            'y' => 0,
-            'u' => 1,
-            'i' => 2,
-            'o' => 3,
-            'p' => 4,
-            'h' => 5,
-            'j' => 6,
-            'k' => 7,
-            'l' => 8,
-            ';' => 9,
-            'n' => 10,
-            'm' => 11,
-            ',' => 12,
-            '.' => 13,
-            '/' => 14,
+    // Parse note name to MIDI note number
+    // Supports: C, C#, D, D#, E, F, F#, G, G#, A, A#, B (and flats: Db, Eb, Gb, Ab, Bb)
+    let parse_note = |note_name: &str| -> Option<u8> {
+        let note_name = note_name.trim();
+        if note_name.is_empty() {
+            return None;
+        }
+
+        // Determine if sharp or flat
+        let has_sharp = note_name.contains('#');
+        let has_flat = note_name.contains('b') && !note_name.starts_with('b');
+        if has_sharp && has_flat {
+            return None; // Can't have both
+        }
+
+        // Extract note letter and octave
+        let (letter, rest) = note_name.split_at(1);
+        let octave_and_accidental: String = rest.to_string();
+
+        // Parse octave (last character must be digit)
+        let octave: i32 = if let Some(last) = octave_and_accidental.chars().last() {
+            if last.is_ascii_digit() {
+                last.to_string().parse().ok()?
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        };
+
+        // Map note letter to semitone (C=0, C#=1, D=2, ...)
+        let semitone = match letter {
+            "C" | "B#" => 0,
+            "C#" | "Db" => 1,
+            "D" => 2,
+            "D#" | "Eb" => 3,
+            "E" | "Fb" => 4,
+            "F" | "E#" => 5,
+            "F#" | "Gb" => 6,
+            "G" => 7,
+            "G#" | "Ab" => 8,
+            "A" => 9,
+            "A#" | "Bb" => 10,
+            "B" | "Cb" => 11,
             _ => return None,
         };
-        Some(note + 60) // Base note 60 to fit in reasonable MIDI range
+
+        // MIDI note = (octave + 1) * 12 + semitone
+        let note = ((octave + 1) as u8) * 12 + semitone;
+        Some(note)
     };
 
     let mut events = Vec::new();
@@ -82,27 +111,66 @@ fn parse_txt_file(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
             continue;
         }
 
+        // Skip CSV header
+        if line == "Time,Keys,Duration" {
+            continue;
+        }
+
         // Parse CSV: Time,Keys,Duration
         let parts: Vec<&str> = line.split(',').collect();
         if parts.len() != 3 {
             continue;
         }
 
-        let time: f64 = parts[0]
-            .parse()
-            .map_err(|_| MidiError::InvalidMidi(format!("Invalid time: {}", parts[0])))?;
+        let time: f64 = match parts[0].parse() {
+            Ok(t) => t,
+            Err(_) => continue, // Skip invalid lines
+        };
         let keys = parts[1];
-        let duration: f64 = parts[2]
-            .parse()
-            .map_err(|_| MidiError::InvalidMidi(format!("Invalid duration: {}", parts[2])))?;
+        let duration: f64 = match parts[2].parse() {
+            Ok(d) => d,
+            Err(_) => continue, // Skip invalid lines
+        };
 
         chords.push((time, keys.to_string(), duration));
     }
 
     // Convert chords to MIDI events
+    // Keys format: "C4D#4E4" for chord (note names concatenated)
     for (time, keys, duration) in chords {
-        for key in keys.chars() {
-            if let Some(note) = key_to_note(key) {
+        let mut pos = 0;
+        while pos < keys.len() {
+            // Try to parse a note name starting at pos
+            // Note name: letter + optional # or b + optional digit(s)
+            if pos >= keys.len() {
+                break;
+            }
+
+            let rest = &keys[pos..];
+            let note_name: String = if rest.len() >= 2 {
+                // Check if second char is #, b, or digit
+                let second = rest.chars().nth(1);
+                match second {
+                    Some('#') | Some('b') if rest.len() >= 3 => {
+                        // Sharp/flat with octave: C#4, Db3, Bb5
+                        rest.chars().take(3).collect()
+                    }
+                    Some(d) if d.is_ascii_digit() => {
+                        // Just letter + octave: C4, D5
+                        rest.chars().take(2).collect()
+                    }
+                    _ => {
+                        // Single letter without octave? Skip.
+                        pos += 1;
+                        continue;
+                    }
+                }
+            } else {
+                pos += 1;
+                continue;
+            };
+
+            if let Some(note) = parse_note(&note_name) {
                 // Note on
                 events.push(MidiEvent {
                     time,
@@ -117,6 +185,9 @@ fn parse_txt_file(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
                     is_note_on: false,
                     velocity: 0,
                 });
+                pos += note_name.len();
+            } else {
+                pos += 1;
             }
         }
     }

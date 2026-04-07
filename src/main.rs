@@ -16,7 +16,7 @@ mod player;
 #[derive(Parser)]
 #[command(name = "sky-piano")]
 #[command(version = "0.1.0")]
-#[command(about = "Play MIDI files on Sky: Children of the Light instruments")]
+#[command(about = "Play MIDI/TXT files on Sky: Children of the Light instruments")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -28,9 +28,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Play a MIDI file
+    /// Play a MIDI or TXT file
     Play {
-        /// MIDI file to play
+        /// MIDI or TXT file to play
         file: PathBuf,
 
         /// Delay in seconds before starting playback (default: 3)
@@ -43,17 +43,17 @@ enum Commands {
     },
     /// Preview: print note sequence without playing
     Preview {
-        /// MIDI file to preview
+        /// MIDI or TXT file to preview
         file: PathBuf,
     },
     /// Dry run: show summary of what would be played
     DryRun {
-        /// MIDI file to analyze
+        /// MIDI or TXT file to analyze
         file: PathBuf,
     },
     /// Export: save note sequence to a file
     Export {
-        /// MIDI file to export
+        /// MIDI or TXT file to export
         file: PathBuf,
 
         /// Output file (default: same name with .txt extension)
