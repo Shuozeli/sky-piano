@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::process::Command;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -28,11 +29,64 @@ pub enum MidiError {
 
 /// Parse a MIDI file and return a list of note events sorted by time.
 pub fn parse_midi(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
+    // Try Python parser first (uses mido library)
+    if let Ok(events) = parse_midi_python(path) {
+        return Ok(events);
+    }
+
+    // Fall back to built-in parser
     let mut file = File::open(path)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
 
     parse_midi_bytes(&buffer)
+}
+
+/// Parse MIDI using Python/mido (more compatible)
+fn parse_midi_python(path: &Path) -> Result<Vec<MidiEvent>, MidiError> {
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/parse_midi.py");
+
+    let output = Command::new("python3")
+        .arg(script)
+        .arg(path)
+        .output()
+        .map_err(|e| MidiError::InvalidMidi(format!("Failed to run Python parser: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(MidiError::InvalidMidi(format!(
+            "Python parser error: {}",
+            stderr
+        )));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut events = Vec::new();
+
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.split(',').collect();
+        if parts.len() != 4 {
+            continue;
+        }
+
+        let time: f64 = parts[0]
+            .parse()
+            .map_err(|_| MidiError::InvalidMidi(format!("Invalid time: {}", parts[0])))?;
+        let note: u8 = parts[1]
+            .parse()
+            .map_err(|_| MidiError::InvalidMidi(format!("Invalid note: {}", parts[1])))?;
+        let is_note_on: bool = parts[2] == "1";
+        let velocity: u8 = parts[3].parse().unwrap_or(0);
+
+        events.push(MidiEvent {
+            time,
+            note,
+            is_note_on,
+            velocity,
+        });
+    }
+
+    Ok(events)
 }
 
 /// Parse MIDI from bytes
