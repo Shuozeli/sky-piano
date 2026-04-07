@@ -1,4 +1,6 @@
 use clap::{Parser, Subcommand};
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -49,6 +51,15 @@ enum Commands {
         /// MIDI file to analyze
         file: PathBuf,
     },
+    /// Export: save note sequence to a file
+    Export {
+        /// MIDI file to export
+        file: PathBuf,
+
+        /// Output file (default: same name with .txt extension)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
 }
 
 fn main() {
@@ -84,6 +95,9 @@ fn main() {
         }
         Commands::DryRun { file } => {
             run_dry_run(file, &mapper);
+        }
+        Commands::Export { file, output } => {
+            run_export(file, output.as_deref(), &mapper);
         }
     }
 }
@@ -195,6 +209,54 @@ fn run_dry_run(file: &Path, mapper: &Mapper) {
     println!("Total chords: {}", chords_count);
     println!("Multi-key chords (chords): {}", multi_key_chords);
     println!("Total duration: {:.2}s", total_duration);
+}
+
+fn run_export(file: &Path, output: Option<&Path>, mapper: &Mapper) {
+    let events = match parse_midi(file) {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    };
+
+    if events.is_empty() {
+        println!("No note events found in file.");
+        return;
+    }
+
+    let chords = events_to_chords(&events, mapper);
+
+    // Determine output file
+    let out_path = if let Some(p) = output {
+        p.to_path_buf()
+    } else {
+        let stem = file.file_stem().unwrap_or_default().to_string_lossy();
+        PathBuf::from(format!("{}.txt", stem))
+    };
+
+    // Write export file
+    let mut f = match File::create(&out_path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Error creating output file: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // Header
+    writeln!(f, "# Exported from: {}", file.display()).ok();
+    writeln!(f, "# Total chords: {}", chords.len()).ok();
+    writeln!(f, "").ok();
+    writeln!(f, "Time,Keys,Duration").ok();
+
+    // Chords
+    for chord in &chords {
+        let keys_str = chord.keys.join("");
+        writeln!(f, "{:.2},{},{:.2}", chord.time, keys_str, chord.duration).ok();
+    }
+
+    println!("Exported {} chords to {}", chords.len(), out_path.display());
 }
 
 #[cfg(test)]
