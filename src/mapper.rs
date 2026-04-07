@@ -96,6 +96,30 @@ impl Mapper {
         Mapper { note_to_key }
     }
 
+    /// Create a mapper that compresses the given note range to Sky's 15 keys.
+    pub fn from_note_range(min_note: u8, max_note: u8) -> Self {
+        let keys = [
+            "y", "u", "i", "o", "p", "h", "j", "k", "l", ";", "n", "m", ",", ".", "/",
+        ];
+
+        let range = max_note.saturating_sub(min_note);
+
+        let note_to_key: HashMap<u8, String> = (0u8..=127)
+            .map(|note| {
+                let position = if range > 0 {
+                    let pos = ((note.saturating_sub(min_note) as f64) / (range as f64) * 14.0)
+                        .round() as u8;
+                    pos.min(14)
+                } else {
+                    0
+                };
+                (note, keys[position as usize].to_string())
+            })
+            .collect();
+
+        Mapper { note_to_key }
+    }
+
     /// Convert a MIDI note number to a keyboard key.
     /// Returns `None` if the note is not mapped.
     pub fn note_to_key(&self, note: u8) -> Option<&str> {

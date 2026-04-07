@@ -78,8 +78,12 @@ fn merge_chords(chords: Vec<Chord>) -> Vec<Chord> {
         let epsilon = 0.001;
 
         if (chord.time - current_time).abs() < epsilon {
-            // Same timestamp - merge keys
-            current_keys.push(chord.keys[0].clone());
+            // Same timestamp - merge keys (deduplicate)
+            for key in chord.keys {
+                if !current_keys.contains(&key) {
+                    current_keys.push(key);
+                }
+            }
             // Keep the longest duration seen so far
             current_duration = current_duration.max(chord.duration);
         } else {

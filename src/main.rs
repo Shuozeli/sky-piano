@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use crate::mapper::Mapper;
-use crate::midi::parse_midi;
+use crate::midi::{note_range, parse_midi, MidiEvent};
 use crate::player::{events_to_chords, play_chords_dry, play_chords_with_output, preview};
 
 mod keyboard;
@@ -65,48 +65,30 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
-    let mapper = if let Some(mapping_path) = &cli.mapping {
-        if mapping_path.exists() {
-            match mapper::MappingConfig::from_file(mapping_path) {
-                Ok(config) => mapper::Mapper::from_config(&config),
-                Err(e) => {
-                    eprintln!("Error loading mapping file: {}", e);
-                    process::exit(1);
-                }
-            }
-        } else {
-            eprintln!("Mapping file not found: {:?}", mapping_path);
-            eprintln!("Using default mapping");
-            mapper::Mapper::a_minor_to_c_major()
-        }
-    } else {
-        mapper::Mapper::a_minor_to_c_major()
-    };
-
     match &cli.command {
         Commands::Play { file, delay, dry } => {
-            if let Err(e) = run_play(file, &mapper, *delay, *dry) {
+            if let Err(e) = run_play(file, *delay, *dry, &cli.mapping) {
                 eprintln!("Error: {}", e);
                 process::exit(1);
             }
         }
         Commands::Preview { file } => {
-            run_preview(file, &mapper);
+            run_preview(file, &cli.mapping);
         }
         Commands::DryRun { file } => {
-            run_dry_run(file, &mapper);
+            run_dry_run(file, &cli.mapping);
         }
         Commands::Export { file, output } => {
-            run_export(file, output.as_deref(), &mapper);
+            run_export(file, output.as_deref(), &cli.mapping);
         }
     }
 }
 
 fn run_play(
     file: &Path,
-    mapper: &Mapper,
     delay: f64,
     dry: bool,
+    mapping: &Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let events = parse_midi(file).map_err(|e| format!("Failed to parse MIDI: {}", e))?;
 
@@ -115,13 +97,15 @@ fn run_play(
         return Ok(());
     }
 
+    let mapper = create_mapper(&events, mapping);
+
     println!("Playing {}...", file.display());
     if dry {
         println!("DRY MODE - keys will only be printed, not pressed");
     }
     println!("Press Ctrl+C to stop.");
 
-    let chords = events_to_chords(&events, mapper);
+    let chords = events_to_chords(&events, &mapper);
     println!("{} chords to play", chords.len());
 
     // Delay before starting
@@ -139,7 +123,7 @@ fn run_play(
     Ok(())
 }
 
-fn run_preview(file: &Path, mapper: &Mapper) {
+fn run_preview(file: &Path, mapping: &Option<PathBuf>) {
     let events = match parse_midi(file) {
         Ok(e) => e,
         Err(e) => {
@@ -152,18 +136,20 @@ fn run_preview(file: &Path, mapper: &Mapper) {
         println!("No note events found in file.");
         return;
     }
+
+    let mapper = create_mapper(&events, mapping);
 
     println!("Preview: {}\n", file.display());
     println!("Time    | Keys | Duration");
     println!("--------|------|---------");
 
-    let chords = events_to_chords(&events, mapper);
-    preview(&chords, mapper);
+    let chords = events_to_chords(&events, &mapper);
+    preview(&chords, &mapper);
 
     println!("\n{} total chords", chords.len());
 }
 
-fn run_dry_run(file: &Path, mapper: &Mapper) {
+fn run_dry_run(file: &Path, mapping: &Option<PathBuf>) {
     let events = match parse_midi(file) {
         Ok(e) => e,
         Err(e) => {
@@ -177,7 +163,8 @@ fn run_dry_run(file: &Path, mapper: &Mapper) {
         return;
     }
 
-    let chords = events_to_chords(&events, mapper);
+    let mapper = create_mapper(&events, mapping);
+    let chords = events_to_chords(&events, &mapper);
 
     // Count statistics
     let total_notes = events.iter().filter(|e| e.is_note_on).count();
@@ -211,7 +198,7 @@ fn run_dry_run(file: &Path, mapper: &Mapper) {
     println!("Total duration: {:.2}s", total_duration);
 }
 
-fn run_export(file: &Path, output: Option<&Path>, mapper: &Mapper) {
+fn run_export(file: &Path, output: Option<&Path>, mapping: &Option<PathBuf>) {
     let events = match parse_midi(file) {
         Ok(e) => e,
         Err(e) => {
@@ -225,7 +212,8 @@ fn run_export(file: &Path, output: Option<&Path>, mapper: &Mapper) {
         return;
     }
 
-    let chords = events_to_chords(&events, mapper);
+    let mapper = create_mapper(&events, mapping);
+    let chords = events_to_chords(&events, &mapper);
 
     // Determine output file
     let out_path = if let Some(p) = output {
@@ -247,7 +235,7 @@ fn run_export(file: &Path, output: Option<&Path>, mapper: &Mapper) {
     // Header
     writeln!(f, "# Exported from: {}", file.display()).ok();
     writeln!(f, "# Total chords: {}", chords.len()).ok();
-    writeln!(f, "").ok();
+    writeln!(f).ok();
     writeln!(f, "Time,Keys,Duration").ok();
 
     // Chords
@@ -257,6 +245,40 @@ fn run_export(file: &Path, output: Option<&Path>, mapper: &Mapper) {
     }
 
     println!("Exported {} chords to {}", chords.len(), out_path.display());
+}
+
+/// Create a mapper for the given MIDI events.
+fn create_mapper(events: &[MidiEvent], mapping: &Option<PathBuf>) -> Mapper {
+    if let Some(mapping_path) = mapping {
+        if mapping_path.exists() {
+            match mapper::MappingConfig::from_file(mapping_path) {
+                Ok(config) => return mapper::Mapper::from_config(&config),
+                Err(e) => {
+                    eprintln!(
+                        "Error loading mapping file: {}, using note range compression",
+                        e
+                    );
+                }
+            }
+        } else {
+            eprintln!(
+                "Mapping file not found: {:?}, using note range compression",
+                mapping_path
+            );
+        }
+    }
+
+    // Use the actual note range from the MIDI, compressed to Sky's range
+    if let Some((min_note, max_note)) = note_range(events) {
+        println!(
+            "Compressing note range {}-{} to Sky keys",
+            min_note, max_note
+        );
+        mapper::Mapper::from_note_range(min_note, max_note)
+    } else {
+        // Fallback to default
+        mapper::Mapper::a_minor_to_c_major()
+    }
 }
 
 #[cfg(test)]

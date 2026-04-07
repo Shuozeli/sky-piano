@@ -264,6 +264,21 @@ pub fn note_name(note: u8) -> String {
     format!("{}{}", names[name_idx], octave)
 }
 
+/// Find the min and max note numbers from a list of MIDI events.
+pub fn note_range(events: &[MidiEvent]) -> Option<(u8, u8)> {
+    let note_ons: Vec<u8> = events
+        .iter()
+        .filter(|e| e.is_note_on)
+        .map(|e| e.note)
+        .collect();
+    if note_ons.is_empty() {
+        return None;
+    }
+    let min = *note_ons.iter().min().unwrap();
+    let max = *note_ons.iter().max().unwrap();
+    Some((min, max))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
