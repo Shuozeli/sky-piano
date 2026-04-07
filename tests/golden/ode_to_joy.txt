@@ -1,0 +1,6 @@
+# Exported from: songs/ode_to_joy.mid
+# Total chords: 2
+
+Time,Keys,Duration
+0.31,;,0.50
+0.81,n,0.50

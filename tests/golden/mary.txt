@@ -1,0 +1,6 @@
+# Exported from: songs/mary.mid
+# Total chords: 2
+
+Time,Keys,Duration
+0.33,n,0.50
+0.83,m,0.50

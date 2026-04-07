@@ -1,0 +1,9 @@
+# Exported from: songs/scale.mid
+# Total chords: 5
+
+Time,Keys,Duration
+0.36,m,0.50
+0.86,n,0.50
+1.36,n,0.50
+1.86,;,0.50
+2.36,l,0.50

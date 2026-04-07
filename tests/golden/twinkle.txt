@@ -1,0 +1,7 @@
+# Exported from: songs/twinkle.mid
+# Total chords: 3
+
+Time,Keys,Duration
+0.50,n,0.50
+1.00,;,0.50
+1.50,;,0.50
