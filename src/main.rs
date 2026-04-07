@@ -66,10 +66,10 @@ fn main() {
         } else {
             eprintln!("Mapping file not found: {:?}", mapping_path);
             eprintln!("Using default mapping");
-            mapper::Mapper::default_positional_15()
+            mapper::Mapper::a_minor_to_c_major()
         }
     } else {
-        mapper::Mapper::default_positional_15()
+        mapper::Mapper::a_minor_to_c_major()
     };
 
     match &cli.command {

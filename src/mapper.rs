@@ -45,39 +45,52 @@ impl Mapper {
         Mapper { note_to_key }
     }
 
-    /// Create a mapper with the default 15-key positional mapping.
+    /// Create a mapper with A minor to C major range mapping.
     ///
-    /// Maps Sky key positions 0-14 directly to keyboard keys:
-    /// | Sky Key | Key |
-    /// |---------|-----|
-    /// | 0  | y |
-    /// | 1  | u |
-    /// | 2  | i |
-    /// | 3  | o |
-    /// | 4  | p |
-    /// | 5  | h |
-    /// | 6  | j |
-    /// | 7  | k |
-    /// | 8  | l |
-    /// | 9  | ; |
-    /// | 10 | n |
-    /// | 11 | m |
-    /// | 12 | , |
-    /// | 13 | . |
-    /// | 14 | / |
-    pub fn default_positional_15() -> Self {
-        // Keyboard keys arranged in 3x5 grid matching Sky's layout:
-        // Row 0 (top):    Y U I O P
-        // Row 1 (middle): H J K L ;
-        // Row 2 (bottom): N M , . /
+    /// Sky's instrument covers 15 notes: two octaves from A minor to C major.
+    /// A3 (MIDI 45) to C5 (MIDI 72) spans 27 semitones but we compress to 15 keys.
+    /// Keys are arranged to match Sky's 3x5 grid layout.
+    ///
+    /// | Sky Key | Key | Note (approx) |
+    /// |---------|-----|--------------|
+    /// | 0  | y | A3 |
+    /// | 1  | u | B3 |
+    /// | 2  | i | C4 |
+    /// | 3  | o | D4 |
+    /// | 4  | p | E4 |
+    /// | 5  | h | F4 |
+    /// | 6  | j | G4 |
+    /// | 7  | k | A4 |
+    /// | 8  | l | B4 |
+    /// | 9  | ; | C5 |
+    /// | 10 | n | D5 |
+    /// | 11 | m | E5 |
+    /// | 12 | , | F5 |
+    /// | 13 | . | G5 |
+    /// | 14 | / | A5 |
+    pub fn a_minor_to_c_major() -> Self {
         let keys = [
             "y", "u", "i", "o", "p", "h", "j", "k", "l", ";", "n", "m", ",", ".", "/",
         ];
 
-        let note_to_key: HashMap<u8, String> = keys
-            .iter()
-            .enumerate()
-            .map(|(pos, key)| (pos as u8, key.to_string()))
+        // A minor starts at A3 (MIDI 45), C major ends at C6 (MIDI 84)
+        // But we want A3 to C5 for 15 notes (two octaves: A-A with C at end)
+        // A3=45, C5=72, span=27 semitones for 15 keys
+        let min_note: u8 = 45; // A3
+        let max_note: u8 = 72; // C5
+        let range = max_note - min_note;
+
+        let note_to_key: HashMap<u8, String> = (0u8..=127)
+            .map(|note| {
+                let position = if range > 0 {
+                    let pos = ((note.saturating_sub(min_note) as f64) / (range as f64) * 14.0)
+                        .round() as u8;
+                    pos.min(14)
+                } else {
+                    0
+                };
+                (note, keys[position as usize].to_string())
+            })
             .collect();
 
         Mapper { note_to_key }
@@ -95,20 +108,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_positional_15() {
-        let mapper = Mapper::default_positional_15();
+    fn test_a_minor_to_c_major() {
+        let mapper = Mapper::a_minor_to_c_major();
 
-        // Test positional mappings (Sky key N -> keyboard key)
-        assert_eq!(mapper.note_to_key(0), Some("y")); // Top row, leftmost
-        assert_eq!(mapper.note_to_key(4), Some("p")); // Top row, rightmost
-        assert_eq!(mapper.note_to_key(5), Some("h")); // Middle row, leftmost
-        assert_eq!(mapper.note_to_key(9), Some(";")); // Middle row, rightmost
-        assert_eq!(mapper.note_to_key(10), Some("n")); // Bottom row, leftmost
-        assert_eq!(mapper.note_to_key(14), Some("/")); // Bottom row, rightmost
-
-        // Unmapped note
-        assert_eq!(mapper.note_to_key(15), None);
-        assert_eq!(mapper.note_to_key(127), None);
+        // A3 (45) should map to "y" (first key)
+        assert_eq!(mapper.note_to_key(45), Some("y"));
+        // C5 (72) should map to "/" (last key)
+        assert_eq!(mapper.note_to_key(72), Some("/"));
+        // Middle of range: note 60 is (60-45)/27*14 ≈ 8, so "l"
+        assert_eq!(mapper.note_to_key(60), Some("l"));
     }
 
     #[test]

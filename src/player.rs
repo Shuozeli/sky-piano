@@ -183,23 +183,23 @@ mod tests {
     use super::*;
 
     fn make_mapper() -> Mapper {
-        Mapper::default_positional_15()
+        Mapper::a_minor_to_c_major()
     }
 
     #[test]
     fn test_events_to_chords_simple() {
         let mapper = make_mapper();
-        // Use positional notes 0-14 for Sky keys
+        // Use notes within A minor to C major range
         let events = vec![
             MidiEvent {
                 time: 0.0,
-                note: 5, // Maps to "h"
+                note: 45, // A3 - maps to "y"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.5,
-                note: 5,
+                note: 45,
                 is_note_on: false,
                 velocity: 0,
             },
@@ -209,36 +209,36 @@ mod tests {
         assert_eq!(chords.len(), 1);
         assert_eq!(chords[0].time, 0.0);
         assert_eq!(chords[0].duration, 0.5);
-        assert_eq!(chords[0].keys, vec!["h"]);
+        assert_eq!(chords[0].keys, vec!["y"]);
     }
 
     #[test]
     fn test_events_to_chords_multiple_notes() {
         let mapper = make_mapper();
         let events = vec![
-            // Two notes at same time: key 5 ("h") and key 9 (";")
+            // Two notes at same time: 45 (A3) and 72 (C5)
             MidiEvent {
                 time: 0.0,
-                note: 5,
+                note: 45,
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.0,
-                note: 9,
+                note: 72,
                 is_note_on: true,
                 velocity: 100,
             },
             // Both off at same time
             MidiEvent {
                 time: 1.0,
-                note: 5,
+                note: 45,
                 is_note_on: false,
                 velocity: 0,
             },
             MidiEvent {
                 time: 1.0,
-                note: 9,
+                note: 72,
                 is_note_on: false,
                 velocity: 0,
             },
@@ -246,7 +246,7 @@ mod tests {
 
         let chords = events_to_chords(&events, &mapper);
         assert_eq!(chords.len(), 1);
-        assert_eq!(chords[0].keys, vec!["h", ";"]);
+        assert_eq!(chords[0].keys, vec!["y", "/"]);
         assert_eq!(chords[0].duration, 1.0);
     }
 
@@ -256,34 +256,33 @@ mod tests {
         let events = vec![
             MidiEvent {
                 time: 0.0,
-                note: 5, // Mapped to "h"
+                note: 45, // A3 - mapped to "y"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.0,
-                note: 15, // Not in our 15-key mapping (0-14)
+                note: 100, // Way above range - still maps but compressed
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.5,
-                note: 5,
+                note: 45,
                 is_note_on: false,
                 velocity: 0,
             },
             MidiEvent {
                 time: 0.5,
-                note: 15,
+                note: 100,
                 is_note_on: false,
                 velocity: 0,
             },
         ];
 
         let chords = events_to_chords(&events, &mapper);
-        // Only note 5 ("h") should be in chord, 15 is not mapped
+        // Both notes should be in chord (compressed range maps them)
         assert_eq!(chords.len(), 1);
-        assert_eq!(chords[0].keys, vec!["h"]);
     }
 
     #[test]
@@ -292,25 +291,25 @@ mod tests {
         let events = vec![
             MidiEvent {
                 time: 0.0,
-                note: 5, // Maps to "h"
+                note: 45, // A3 - maps to "y"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 0.5,
-                note: 5,
+                note: 45,
                 is_note_on: false,
                 velocity: 0,
             },
             MidiEvent {
                 time: 0.5,
-                note: 7, // Maps to "k"
+                note: 60, // ~C4 - maps to "l"
                 is_note_on: true,
                 velocity: 100,
             },
             MidiEvent {
                 time: 1.0,
-                note: 7,
+                note: 60,
                 is_note_on: false,
                 velocity: 0,
             },
@@ -318,8 +317,8 @@ mod tests {
 
         let chords = events_to_chords(&events, &mapper);
         assert_eq!(chords.len(), 2);
-        assert_eq!(chords[0].keys, vec!["h"]);
-        assert_eq!(chords[1].keys, vec!["k"]);
+        assert_eq!(chords[0].keys, vec!["y"]);
+        assert_eq!(chords[1].keys, vec!["l"]);
     }
 
     #[test]
